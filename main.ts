@@ -92,18 +92,22 @@ export default class MyPlugin extends Plugin {
             'stderr': '',
             'stdout': ''
         };
+        // Prepend 'wsl' to the executable path if it's intended to run in WSL
+        const isWSLPath = executable_path.startsWith('\\wsl$');
+        const fullPath = isWSLPath ? `wsl ${executable_path}` : executable_path;
+        const finalArgs = isWSLPath ? args : [executable_path].concat(args);
+        const commandToRun = isWSLPath ? 'wsl' : fullPath;
+    
         return new Promise(function (resolve, reject) {
-            const process = spawn(executable_path, args);
+            const process = spawn(commandToRun, finalArgs, {shell: true});
             process.stdout.on('data', (data: string) => { outputs.stdout += data; });
             process.stderr.on('data', (data: string) => { outputs.stderr += data; });
-
+    
             process.on('close', async function (code: number) {
                 if(code === 0) {
                     resolve(outputs);
-                }
-                else {
-                    reject("Nonzero exitcode.\nSTDERR: " + outputs.stderr
-                        + "\nSTDOUT: " + outputs.stdout);
+                } else {
+                    reject("Nonzero exitcode.\nSTDERR: " + outputs.stderr + "\nSTDOUT: " + outputs.stdout);
                 }
             });
             process.on('error', function (err: string) {
